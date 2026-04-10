@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interstitial Journal</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f6f7fb;
+        --surface: #ffffff;
+        --text: #1b1f2a;
+        --muted: #5b6478;
+        --accent: #4b5cff;
+        --accent-2: #6a3cff;
+        --ok: #0d8b53;
+        --border: #dbe0ef;
+        --shadow: 0 10px 25px rgba(17, 24, 39, 0.08);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0f1117;
+          --surface: #171a23;
+          --text: #eef3ff;
+          --muted: #a7b1ca;
+          --accent: #8b97ff;
+          --accent-2: #b48cff;
+          --ok: #3fd08f;
+          --border: #2b3040;
+          --shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+        }
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+        background: radial-gradient(circle at top right, rgba(75, 92, 255, 0.12), transparent 45%), var(--bg);
+        color: var(--text);
+      }
+
+      .wrap {
+        max-width: 980px;
+        margin: 2rem auto;
+        padding: 0 1rem 2rem;
+      }
+
+      .header h1 {
+        margin: 0;
+        font-size: clamp(1.5rem, 2.5vw, 2.2rem);
+      }
+      .header p { color: var(--muted); margin: .5rem 0 0; }
+
+      .grid {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: 1.1fr 1fr;
+        margin-top: 1rem;
+      }
+      @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 1rem;
+        box-shadow: var(--shadow);
+      }
+
+      .meta {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: .75rem;
+        margin-top: .8rem;
+      }
+      .pill {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: .6rem .75rem;
+      }
+      .pill strong { display: block; font-size: 1.2rem; }
+      .pill span { color: var(--muted); font-size: .85rem; }
+
+      label { display: block; font-size: .9rem; margin: .75rem 0 .35rem; color: var(--muted); }
+      input, textarea, select {
+        width: 100%;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text);
+        padding: .65rem .75rem;
+        font: inherit;
+      }
+      textarea { min-height: 100px; resize: vertical; }
+
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: .75rem;
+      }
+      @media (max-width: 560px) { .row { grid-template-columns: 1fr; } }
+
+      .actions {
+        display: flex;
+        gap: .5rem;
+        flex-wrap: wrap;
+        margin-top: .9rem;
+      }
+      button {
+        border: none;
+        border-radius: 10px;
+        padding: .6rem .9rem;
+        font: inherit;
+        cursor: pointer;
+      }
+      .primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; }
+      .secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+      .success { background: color-mix(in oklab, var(--ok) 18%, transparent); color: var(--ok); border: 1px solid color-mix(in oklab, var(--ok) 40%, var(--border)); }
+
+      .entries-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: .5rem;
+      }
+
+      .entry-list {
+        margin-top: .8rem;
+        display: flex;
+        flex-direction: column;
+        gap: .7rem;
+        max-height: 580px;
+        overflow: auto;
+        padding-right: .2rem;
+      }
+
+      .entry {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: .8rem;
+      }
+      .entry .top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: .5rem;
+      }
+      .entry time { font-size: .84rem; color: var(--muted); }
+      .entry .mood { font-size: .82rem; color: var(--muted); }
+      .entry .now { margin: .45rem 0 .2rem; }
+      .entry .next { margin: 0; color: var(--muted); }
+
+      .empty { color: var(--muted); text-align: center; padding: 1.2rem .5rem; }
+      .hint { color: var(--muted); font-size: .88rem; margin-top: .6rem; }
+      .ok-msg { color: var(--ok); font-size: .9rem; min-height: 1.2rem; margin-top: .3rem; }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <header class="header card">
+        <h1>Interstitial Journal</h1>
+        <p>Write quick check-ins between tasks: what you're doing now, and your smallest next step.</p>
+        <div class="meta">
+          <div class="pill"><strong id="todayCount">0</strong><span>Entries Today</span></div>
+          <div class="pill"><strong id="streak">0</strong><span>Day Streak</span></div>
+          <div class="pill"><strong id="avgGap">0m</strong><span>Avg Check-in Gap</span></div>
+        </div>
+      </header>
+
+      <section class="grid">
+        <article class="card">
+          <h2>New Check-in</h2>
+          <p class="hint">Keep it tiny and concrete (ex: “Open inbox”, “Refill water”).</p>
+
+          <label for="nowText">What are you doing right now?</label>
+          <textarea id="nowText" placeholder="Working on..." required></textarea>
+
+          <label for="nextText">What's the next smallest step?</label>
+          <input id="nextText" placeholder="Next tiny step..." />
+
+          <div class="row">
+            <div>
+              <label for="mood">Mood / Energy</label>
+              <select id="mood">
+                <option value="">Prefer not to say</option>
+                <option>Focused</option>
+                <option>Scattered</option>
+                <option>Overwhelmed</option>
+                <option>Calm</option>
+                <option>Tired</option>
+              </select>
+            </div>
+            <div>
+              <label for="tag">Context tag</label>
+              <input id="tag" placeholder="work, home, admin..." />
+            </div>
+          </div>
+
+          <div class="actions">
+            <button id="saveBtn" class="primary">Save Check-in</button>
+            <button id="completeBtn" class="success" type="button">Mark last “next step” done</button>
+            <button id="exportBtn" class="secondary" type="button">Export JSON</button>
+            <button id="clearBtn" class="secondary" type="button">Clear All</button>
+          </div>
+          <div class="ok-msg" id="msg"></div>
+        </article>
+
+        <article class="card">
+          <div class="entries-head">
+            <h2>Timeline</h2>
+            <select id="filter">
+              <option value="today">Today</option>
+              <option value="all">All entries</option>
+            </select>
+          </div>
+          <div id="entryList" class="entry-list" aria-live="polite"></div>
+          <p class="hint">Tip: re-open this page later — entries persist in your browser via localStorage.</p>
+        </article>
+      </section>
+    </main>
+
+    <script>
+      const STORAGE_KEY = 'interstitial-journal-v1';
+      const COMPLETIONS_KEY = 'interstitial-completions-v1';
+
+      const nowText = document.getElementById('nowText');
+      const nextText = document.getElementById('nextText');
+      const mood = document.getElementById('mood');
+      const tag = document.getElementById('tag');
+      const saveBtn = document.getElementById('saveBtn');
+      const completeBtn = document.getElementById('completeBtn');
+      const exportBtn = document.getElementById('exportBtn');
+      const clearBtn = document.getElementById('clearBtn');
+      const entryList = document.getElementById('entryList');
+      const filter = document.getElementById('filter');
+      const msg = document.getElementById('msg');
+
+      const todayCount = document.getElementById('todayCount');
+      const streak = document.getElementById('streak');
+      const avgGap = document.getElementById('avgGap');
+
+      const entries = loadJson(STORAGE_KEY, []);
+      const completions = loadJson(COMPLETIONS_KEY, []);
+
+      function loadJson(key, fallback) {
+        try {
+          const raw = localStorage.getItem(key);
+          return raw ? JSON.parse(raw) : fallback;
+        } catch {
+          return fallback;
+        }
+      }
+
+      function saveEntries() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+      }
+
+      function saveCompletions() {
+        localStorage.setItem(COMPLETIONS_KEY, JSON.stringify(completions));
+      }
+
+      function dateKey(ts) {
+        return new Date(ts).toISOString().slice(0, 10);
+      }
+
+      function formatWhen(ts) {
+        const d = new Date(ts);
+        return d.toLocaleString([], {
+          weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+        });
+      }
+
+      function render() {
+        const selected = filter.value;
+        const today = dateKey(Date.now());
+        const visible = entries
+          .slice()
+          .sort((a, b) => b.ts - a.ts)
+          .filter(e => selected === 'all' || dateKey(e.ts) === today);
+
+        entryList.innerHTML = '';
+
+        if (!visible.length) {
+          const p = document.createElement('p');
+          p.className = 'empty';
+          p.textContent = selected === 'today' ? 'No check-ins yet today.' : 'No entries yet.';
+          entryList.appendChild(p);
+        } else {
+          for (const e of visible) {
+            const card = document.createElement('div');
+            card.className = 'entry';
+            card.innerHTML = `
+              <div class="top">
+                <time>${formatWhen(e.ts)}</time>
+                <span class="mood">${e.mood || '—'}${e.tag ? ` • #${e.tag}` : ''}</span>
+              </div>
+              <p class="now"><strong>Now:</strong> ${escapeHtml(e.now)}</p>
+              <p class="next"><strong>Next:</strong> ${escapeHtml(e.next || 'Not set')}</p>
+            `;
+            entryList.appendChild(card);
+          }
+        }
+
+        updateStats();
+      }
+
+      function updateStats() {
+        const today = dateKey(Date.now());
+        const todayEntries = entries.filter(e => dateKey(e.ts) === today).length;
+        todayCount.textContent = String(todayEntries);
+
+        const days = [...new Set(entries.map(e => dateKey(e.ts)))].sort().reverse();
+        let run = 0;
+        if (days.length) {
+          const cursor = new Date();
+          while (days.includes(cursor.toISOString().slice(0, 10))) {
+            run += 1;
+            cursor.setDate(cursor.getDate() - 1);
+          }
+        }
+        streak.textContent = String(run);
+
+        const todays = entries
+          .filter(e => dateKey(e.ts) === today)
+          .sort((a, b) => a.ts - b.ts);
+
+        if (todays.length < 2) {
+          avgGap.textContent = '0m';
+          return;
+        }
+
+        let total = 0;
+        for (let i = 1; i < todays.length; i += 1) {
+          total += todays[i].ts - todays[i - 1].ts;
+        }
+        const avgMin = Math.round(total / (todays.length - 1) / 60000);
+        avgGap.textContent = `${avgMin}m`;
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+
+      function toast(text) {
+        msg.textContent = text;
+        setTimeout(() => {
+          if (msg.textContent === text) msg.textContent = '';
+        }, 2200);
+      }
+
+      saveBtn.addEventListener('click', () => {
+        const now = nowText.value.trim();
+        if (!now) {
+          toast('Please write what you are doing right now.');
+          nowText.focus();
+          return;
+        }
+
+        entries.push({
+          id: crypto.randomUUID(),
+          ts: Date.now(),
+          now,
+          next: nextText.value.trim(),
+          mood: mood.value,
+          tag: tag.value.trim().replace(/\s+/g, '-').toLowerCase()
+        });
+
+        saveEntries();
+        render();
+
+        nowText.value = '';
+        nextText.value = '';
+        tag.value = '';
+        mood.value = '';
+        nowText.focus();
+
+        toast('Saved ✅ Keep going, one tiny step at a time.');
+      });
+
+      completeBtn.addEventListener('click', () => {
+        const last = entries.at(-1);
+        if (!last || !last.next) {
+          toast('No pending “next step” found on the latest entry.');
+          return;
+        }
+
+        completions.push({
+          ts: Date.now(),
+          fromEntry: last.id,
+          completed: last.next
+        });
+        saveCompletions();
+        toast('Nice. Last next-step marked done ✅');
+      });
+
+      exportBtn.addEventListener('click', () => {
+        const payload = {
+          exportedAt: new Date().toISOString(),
+          entries,
+          completions
+        };
+
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `interstitial-journal-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+
+      clearBtn.addEventListener('click', () => {
+        const ok = confirm('Clear all saved entries from this browser?');
+        if (!ok) return;
+
+        entries.length = 0;
+        completions.length = 0;
+        saveEntries();
+        saveCompletions();
+        render();
+        toast('All entries cleared.');
+      });
+
+      filter.addEventListener('change', render);
+      render();
+    </script>
+  </body>
+</html>
